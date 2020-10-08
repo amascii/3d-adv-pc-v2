@@ -145,7 +145,7 @@ def conv2d(inputs,
   """
   with tf.variable_scope(scope) as sc:
       kernel_h, kernel_w = kernel_size
-      num_in_channels = inputs.get_shape()[-1].value
+      num_in_channels = inputs.get_shape()[-1]
       kernel_shape = [kernel_h, kernel_w,
                       num_in_channels, num_output_channels]
       kernel = _variable_with_weight_decay('weights',
@@ -329,7 +329,7 @@ def fully_connected(inputs,
     Variable tensor of size B x num_outputs.
   """
   with tf.variable_scope(scope) as sc:
-    num_input_units = inputs.get_shape()[-1].value
+    num_input_units = inputs.get_shape()[-1]
     weights = _variable_with_weight_decay('weights',
                                           shape=[num_input_units, num_outputs],
                                           use_xavier=use_xavier,
@@ -467,7 +467,7 @@ def batch_norm_template(inputs, is_training, scope, moments_dims, bn_decay):
       normed:        batch-normalized maps
   """
   with tf.variable_scope(scope) as sc:
-    num_channels = inputs.get_shape()[-1].value
+    num_channels = inputs.get_shape()[-1]
     beta = tf.Variable(tf.constant(0.0, shape=[num_channels]),
                        name='beta', trainable=True)
     gamma = tf.Variable(tf.constant(1.0, shape=[num_channels]),
