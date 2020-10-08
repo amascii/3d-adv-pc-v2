@@ -5,7 +5,7 @@ Date: November 2016
 """
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 def _variable_on_cpu(name, shape, initializer, use_fp16=False):
   """Helper to create a Variable stored on CPU memory.
@@ -39,7 +39,8 @@ def _variable_with_weight_decay(name, shape, stddev, wd, use_xavier=True):
     Variable Tensor
   """
   if use_xavier:
-    initializer = tf.contrib.layers.xavier_initializer()
+    #initializer = tf.contrib.layers.xavier_initializer()
+    initializer = tf.initializers.glorot_uniform()
   else:
     initializer = tf.truncated_normal_initializer(stddev=stddev)
   var = _variable_on_cpu(name, shape, initializer)
@@ -83,7 +84,7 @@ def conv1d(inputs,
     Variable tensor
   """
   with tf.variable_scope(scope) as sc:
-    num_in_channels = inputs.get_shape()[-1].value
+    num_in_channels = inputs.get_shape()[-1]
     kernel_shape = [kernel_size,
                     num_in_channels, num_output_channels]
     kernel = _variable_with_weight_decay('weights',
