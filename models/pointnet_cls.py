@@ -18,8 +18,8 @@ def placeholder_inputs(batch_size, num_point):
 
 def get_model(point_cloud, is_training, bn_decay=None):
     """ Classification PointNet, input is BxNx3, output Bx40 """
-    batch_size = point_cloud.get_shape()[0].value
-    num_point = point_cloud.get_shape()[1].value
+    batch_size = point_cloud.get_shape()[0]
+    num_point = point_cloud.get_shape()[1]
     end_points = {}
 
     with tf.variable_scope('transform_net1') as sc:
