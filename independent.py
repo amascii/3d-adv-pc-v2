@@ -1,8 +1,9 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow.compat.v1 as tf
 import numpy as np
 import argparse
 import importlib
-import os
 import sys
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
