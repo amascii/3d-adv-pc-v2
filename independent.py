@@ -1,4 +1,4 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import numpy as np
 import argparse
 import importlib
@@ -125,10 +125,10 @@ def attack():
         print('model restored!')
 
         dist_list=[]  
-        for victim in [5,35,33,22,37,2,4,0,30,8]:#the class index of selected 10 largest classed in ModelNet40
+        for victim in [5,35,33,22,37,2,4,0,30,8]:#the class index of selected 10 largest classes in ModelNet40 (although there are more classes with 100 samples)
             if victim == TARGET:
                 continue
-            attacked_data=attacked_data_all[victim]#attacked_data shape:25*1024*3
+            attacked_data=attacked_data_all[victim]#attacked_data shape:100*1024*3, but only the first 25 are used later on
             for j in range(25//BATCH_SIZE):
                 dist,img=attack_one_batch(sess,ops,attacked_data[j*BATCH_SIZE:(j+1)*BATCH_SIZE])
                 dist_list.append(dist)
