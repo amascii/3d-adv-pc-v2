@@ -52,15 +52,8 @@ ATT_SIZE = FLAGS.att_size
 TARGET=FLAGS.target
 NUM_ADD=FLAGS.add_num
 LR_ATTACK=FLAGS.lr_attack
-#WEIGHT=FLAGS.weight
 
 attacked_data_all=joblib.load(os.path.join(DATA_DIR,'attacked_data.z'))
-
-INITIAL_WEIGHT=FLAGS.initial_weight
-UPPER_BOUND_WEIGHT=FLAGS.upper_bound_weight
-#ABORT_EARLY=False
-BINARY_SEARCH_STEP=FLAGS.step
-NUM_ITERATIONS=FLAGS.num_iter
 
 def attack():
     is_training = False
@@ -76,24 +69,6 @@ def attack():
             
             pred, end_points = MODEL.get_model(pointclouds_input, is_training_pl)
 
-            #adv loss
-            adv_loss=MODEL.get_adv_loss(pred,TARGET)
-               
-            dists_forward,_,dists_backward,_ = tf_nndistance.nn_distance(point_added,pointclouds_pl)
-            if FLAGS.constraint=='c':#Chamfer 
-                dists_forward=tf.reduce_mean(dists_forward,axis=1)
-                dists_backward=tf.reduce_mean(dists_backward,axis=1)#not used
-            elif FLAGS.constraint=='h':#Hausdorff
-                dists_forward=tf.reduce_max(dists_forward,axis=1)
-                dists_backward=tf.reduce_max(dists_backward,axis=1)#not used
-            else:
-                raise Exception("Invalid constraint type. Please try c for Chamfer and h for Hausdorff")
-
-            dist_weight=tf.placeholder(shape=[BATCH_SIZE],dtype=tf.float32)
-            lr_attack=tf.placeholder(dtype=tf.float32)
-            attack_optimizer = tf.train.AdamOptimizer(lr_attack)
-            attack_op = attack_optimizer.minimize(adv_loss + tf.reduce_mean(tf.multiply(dist_weight,dists_forward)),var_list=[pert])
-            
             vl=tf.global_variables()
             vl=[x for x in vl if 'pert' not in x.name]
             saver = tf.train.Saver(vl)
@@ -112,18 +87,11 @@ def attack():
                'is_training_pl': is_training_pl,
                'pointclouds_input':pointclouds_input,
                'initial_point_pl':initial_point_pl,
-               'dist_weight':dist_weight,
                'pert': pert,
                'point_added':point_added,
                'pre_max':end_points['pre_max'],
                'post_max':end_points['post_max'],
                'pred': pred,
-               'adv_loss': adv_loss,
-               #'dists_backward':dists_backward,
-               'dists_forward':dists_forward,
-               'total_loss':tf.reduce_mean(tf.multiply(dist_weight,dists_forward))+adv_loss,
-               'lr_attack':lr_attack,
-               'attack_op':attack_op
                }
 
         saver.restore(sess,MODEL_PATH)
@@ -148,27 +116,6 @@ def attack_one_batch(sess, ops, attacked_data):
   # Critical points here:
   init_points=MODEL.get_critical_points(sess,ops,attacked_data,BATCH_SIZE,NUM_ADD,NUM_POINT)
     
-  feed_dict = {
-    ops['pointclouds_pl']: attacked_data,
-    ops['is_training_pl']: is_training,
-    ops['initial_point_pl']: init_points
-  }
- 
-  pred_val,input_val = sess.run(
-    [ops['pred'],
-    ops['pointclouds_input']],
-    feed_dict=feed_dict)
-            
-  # Predictions here:
-  pred_val = np.argmax(pred_val, 1)
-  print(pred_val)
-
-  #idx = np.where(attacked_data[0] == init_points[0][0])
-
-  #print(np.shape(attacked_data[0]))
-  #new_pc = np.delete(attacked_data[0], idx[0][0], 0)
-  #print(np.shape(new_pc))
-
   new_attacked_data = []
 
   for i in range(BATCH_SIZE):
@@ -179,22 +126,21 @@ def attack_one_batch(sess, ops, attacked_data):
   print(np.shape(attacked_data))
   print(np.shape(new_attacked_data))
 
+  
 
   feed_dict = {
-    ops['pointclouds_pl']: new_attacked_data,
+    ops['pointclouds_pl']: attacked_data,
     ops['is_training_pl']: is_training,
     ops['initial_point_pl']: init_points
   }
  
-  pred_val,input_val = sess.run(
-    [ops['pred'],
-    ops['pointclouds_input']],
-    feed_dict=feed_dict)
-
+  pred_val, input_val = sess.run([ops['pred'], ops['pointclouds_input']], feed_dict=feed_dict)
+            
+  # Predictions here:
   pred_val = np.argmax(pred_val, 1)
   print(pred_val)
   input('press summin')
-    
+  
 
 if __name__=='__main__':
   attack()
