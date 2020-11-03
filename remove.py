@@ -195,7 +195,7 @@ def attack_one_batch(sess,ops,attacked_data):
             
             # Loss (?) here:
             loss=adv_loss_val+np.average(dist_val*WEIGHT)
-            if iteration % ((NUM_ITERATIONS // 50) or 1) == 0:
+            if iteration % ((NUM_ITERATIONS // 5) or 1) == 0:
               print(f' pred: {pred_val}')
               print(f' Iteration {iteration} of {NUM_ITERATIONS}: loss={loss} adv_loss:{adv_loss_val} distance={np.mean(dist_val)}')
 
