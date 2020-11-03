@@ -174,7 +174,7 @@ def attack_one_batch(sess,ops,attacked_data):
          ops['initial_point_pl']:init_points}
 
     for out_step in range(BINARY_SEARCH_STEP):
-        print(f'step: {step}')
+        print(f'step: {out_step}')
         feed_dict[ops['dist_weight']]=WEIGHT
 
         sess.run(tf.assign(ops['pert'],tf.truncated_normal([BATCH_SIZE,NUM_ADD,3], mean=0, stddev=0.0000001)))
