@@ -140,102 +140,32 @@ def attack():
                 np.save(os.path.join('.',DUMP_DIR,'{}_{}_{}_adv.npy' .format(victim,TARGET,j)),img)
                 #np.save(os.path.join('.',DUMP_DIR,'{}_{}_{}_orig.npy' .format(victim,TARGET,j)),attacked_data[j*BATCH_SIZE:(j+1)*BATCH_SIZE])#dump originial example for comparison
         #joblib.dump(dist_list,os.path.join('.',DUMP_DIR,'dist_{}.z' .format(TARGET)))#log distance information for performation evaluation
-def attack_one_batch(sess,ops,attacked_data):
 
-    ###############################################################
-    ### a simple implementation
-    ### Attack all the data in variable 'attacked_data' into the same target class (specified by TARGET)
-    ### binary search is used to find the near-optimal results
-    ### part of the code is adpated from https://github.com/tensorflow/cleverhans/blob/master/cleverhans/attacks/carlini_wagner_l2.py
-    ###############################################################
+def attack_one_batch(sess, ops, attacked_data):
 
     is_training = False
 
     attacked_label=np.ones(shape=(len(attacked_data)),dtype=int) * TARGET #the target label for adv pcs
     attacked_label=np.squeeze(attacked_label)
 
-    #the bound for the binary search
-    lower_bound=np.zeros(BATCH_SIZE)
-    WEIGHT = np.ones(BATCH_SIZE) * INITIAL_WEIGHT
-    upper_bound=np.ones(BATCH_SIZE) * UPPER_BOUND_WEIGHT
-
-   
-    o_bestdist = [1e10] * BATCH_SIZE
-    o_bestscore = [-1] * BATCH_SIZE
-    o_bestattack = np.ones(shape=(BATCH_SIZE,NUM_ADD+NUM_POINT,3))
-
     # Critical points here:
     init_points=MODEL.get_critical_points(sess,ops,attacked_data,BATCH_SIZE,NUM_ADD,NUM_POINT)
-
-    feed_dict = {ops['pointclouds_pl']: attacked_data,
-         ops['is_training_pl']: is_training,
-         ops['lr_attack']:LR_ATTACK,
-         ops['dist_weight']:WEIGHT,
-         ops['initial_point_pl']:init_points}
-
-    for out_step in range(BINARY_SEARCH_STEP):
-        print(f'step: {out_step}')
-        feed_dict[ops['dist_weight']]=WEIGHT
-
-        sess.run(tf.assign(ops['pert'],tf.truncated_normal([BATCH_SIZE,NUM_ADD,3], mean=0, stddev=0.0000001)))
-
-        bestdist = [1e10] * BATCH_SIZE
-        bestscore = [-1] * BATCH_SIZE  
-
-        prev = 1e6      
-
-        for iteration in range(NUM_ITERATIONS):
-            _= sess.run([ops['attack_op']], feed_dict=feed_dict)
-
-            adv_loss_val,dist_val,pred_val,input_val = sess.run([ops['adv_loss'],
-                ops['dists_forward'],ops['pred'],ops['pointclouds_input']], feed_dict=feed_dict)
+    
+    feed_dict = {
+      ops['pointclouds_pl']: attacked_data,
+      ops['is_training_pl']: is_training,
+      ops['initial_point_pl']: init_points
+    }
+ 
+    pred_val,input_val = sess.run(
+      [ops['pred'],
+      ops['pointclouds_input']],
+      feed_dict=feed_dict) 
             
-            # Predictions here:
-            pred_val = np.argmax(pred_val, 1)
-            
-            # Loss (?) here:
-            loss=adv_loss_val+np.average(dist_val*WEIGHT)
-            if iteration % ((NUM_ITERATIONS // 5) or 1) == 0:
-              print(f' pred: {pred_val}')
-              print(f' Iteration {iteration} of {NUM_ITERATIONS}: loss={loss} adv_loss:{adv_loss_val} distance={np.mean(dist_val)}')
-
-
-            # check if we should abort search if we're getting nowhere.
-            '''
-            if ABORT_EARLY and iteration % ((MAX_ITERATIONS // 10) or 1) == 0:
-                
-                if loss > prev * .9999999:
-                    msg = "    Failed to make progress; stop early"
-                    print(msg)
-                    break
-                prev = loss
-            '''
-
-            for e, (dist, pred, ii) in enumerate(zip(dist_val, pred_val, input_val)):
-                if dist < bestdist[e] and pred == TARGET:
-                    bestdist[e] = dist
-                    bestscore[e] = pred
-                if dist < o_bestdist[e] and pred == TARGET:
-                    o_bestdist[e]=dist
-                    o_bestscore[e]=pred
-                    o_bestattack[e] = ii
-
-        # adjust the constant as needed
-        for e in range(BATCH_SIZE):
-            if bestscore[e]==TARGET and bestscore[e] != -1 and bestdist[e] <= o_bestdist[e] :
-                # success
-                lower_bound[e] = max(lower_bound[e], WEIGHT[e])
-                WEIGHT[e] = (lower_bound[e] + upper_bound[e]) / 2
-                #print('new result found!')
-            else:
-                # failure
-                upper_bound[e] = min(upper_bound[e], WEIGHT[e])
-                WEIGHT[e] = (lower_bound[e] + upper_bound[e]) / 2
-        #bestdist_prev=deepcopy(bestdist)
-
-    print(f' Successfully generated adversarial examples on {sum(lower_bound > 0)} of {BATCH_SIZE} instances.')
-    return o_bestdist,o_bestattack
-
+    # Predictions here:
+    pred_val = np.argmax(pred_val, 1)
+    print(pred_val)
+    q = input('input summin')
 
 if __name__=='__main__':
     attack()
