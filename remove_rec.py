@@ -24,6 +24,7 @@ parser.add_argument('--data_dir', default='data', help='data folder path [data]'
 parser.add_argument('--dump_dir', default='independent', help='dump folder path [independent]')
 
 parser.add_argument('--add_num', type=int, default=512, help='number of added points [default: 512]')
+parser.add_argument('--num_iter', type=int, default=10, help='number of iterations [default: 10]')
 
 FLAGS = parser.parse_args()
 
@@ -36,7 +37,7 @@ DUMP_DIR = FLAGS.dump_dir
 if not os.path.exists(DUMP_DIR): os.mkdir(DUMP_DIR)
 DATA_DIR = FLAGS.data_dir
 
-
+NUM_ITER=FLAGS.num_iter
 NUM_ADD=FLAGS.add_num
 
 attacked_data_all=joblib.load(os.path.join(DATA_DIR,'attacked_data.z'))
@@ -45,7 +46,7 @@ def get_crit_p(attacked_data):
   is_training = False
   with tf.Graph().as_default():
     with tf.device('/gpu:'+str(GPU_INDEX)):
-      pointclouds_pl, labels_pl = MODEL.placeholder_inputs(BATCH_SIZE, NUM_POINT)
+      pointclouds_pl, labels_pl = MODEL.placeholder_inputs(BATCH_SIZE, np.shape(attacked_data)[1])
       is_training_pl = tf.placeholder(tf.bool, shape=())
 
       pert=tf.get_variable(name='pert',shape=[BATCH_SIZE,NUM_ADD,3],initializer=tf.truncated_normal_initializer(stddev=0.01))
@@ -85,7 +86,7 @@ def get_crit_p(attacked_data):
 
     # Critical points:
     #attacked_data = attacked_data_all[35][:1]
-    crit_p=MODEL.get_critical_points(sess, ops, attacked_data, BATCH_SIZE, NUM_ADD,NUM_POINT)
+    crit_p=MODEL.get_critical_points(sess, ops, attacked_data, BATCH_SIZE, NUM_ADD, np.shape(attacked_data)[1])
     return crit_p
 
     #attack_batch(sess, ops, )
@@ -152,39 +153,24 @@ def get_pred(new_attacked_data, init_points):
     pred_val = np.argmax(pred_val, 1)
     return pred_val
 
-
-
-
 if __name__=='__main__':
-
+  # n = 1
+  N = NUM_ADD
   class_id = 1
-  data = attacked_data_all[class_id][0:1] #1x1024x3
-
-  # get k points
-  crit_p = get_crit_p(data)
-
-  print(f'crit shape: {np.shape(crit_p)}')
-
-  # remove k points
-  ids = []
-
-  K = 512
-
-  for i in range(K):
-    idx = np.where(data[0] == crit_p[0][i])
-    ids.append(idx[0][0])
-
-  ids = np.unique(ids)
-
-  print(f'ids shape: {np.shape(ids)}')
-
-  for i in range(len(ids)):
-    new_data = np.delete(data[0], ids[:i+1], 0) #1x(1024-k)x3
+  data = attacked_data_all[class_id][:1] #1x1024x3
+  for _ in range(NUM_ITER):
+    # get n points
+    crit_p = get_crit_p(np.array(data))
+    print(f'crit shape: {np.shape(crit_p)}, ', end='')
     
-    print(f'new shape: {np.shape(new_data)}', end='')
+    # remove n points
+    ids = []
+    for i in range(N):
+      idx = np.where(data[0] == crit_p[0][i])
+      ids.append(idx[0][0])
+    data = [np.delete(data[0], ids, 0)] #1x(1024-k)x3
+    print(f'new shape: {np.shape(data)}, ', end='')
 
     # check prediction
-    pred = get_pred([new_data], crit_p)
-
-    
-    print(f' pred: {pred[0]}, original: {class_id}')
+    pred = get_pred(data, crit_p)
+    print(f'pred: {pred[0]}, original: {class_id}')
