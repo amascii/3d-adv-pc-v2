@@ -24,19 +24,9 @@ parser.add_argument('--data_dir', default='data', help='data folder path [data]'
 parser.add_argument('--dump_dir', default='independent', help='dump folder path [independent]')
 
 parser.add_argument('--add_num', type=int, default=512, help='number of added points [default: 512]')
-parser.add_argument('--target', type=int, default=5, help='target class index')
-parser.add_argument('--constraint', default='c', help='type of constraint. h for Hausdoff; c for Chamfer')
-parser.add_argument('--lr_attack', type=float, default=0.01, help='learning rate for optimization based attack')
-
-parser.add_argument('--initial_weight', type=float, default=5000, help='initial value for the parameter lambda')#200 for Hausdorff
-parser.add_argument('--upper_bound_weight', type=float, default=40000, help='upper_bound value for the parameter lambda')#900 for Hausdorff
-parser.add_argument('--step', type=int, default=10, help='binary search step')
-parser.add_argument('--num_iter', type=int, default=500, help='number of iterations for each binary search step')
-
 parser.add_argument('--att_size', type=int, default=25, help='Number of samples to attack (max: 100) [default: 25]')
 
 FLAGS = parser.parse_args()
-
 
 BATCH_SIZE = FLAGS.batch_size
 NUM_POINT = FLAGS.num_point
@@ -49,73 +39,66 @@ DATA_DIR = FLAGS.data_dir
 
 ATT_SIZE = FLAGS.att_size
 
-TARGET=FLAGS.target
 NUM_ADD=FLAGS.add_num
-LR_ATTACK=FLAGS.lr_attack
 
 attacked_data_all=joblib.load(os.path.join(DATA_DIR,'attacked_data.z'))
 
 def attack():
-    is_training = False
-    with tf.Graph().as_default():
-        with tf.device('/gpu:'+str(GPU_INDEX)):
-            pointclouds_pl, labels_pl = MODEL.placeholder_inputs(BATCH_SIZE, NUM_POINT)
-            is_training_pl = tf.placeholder(tf.bool, shape=())
+  is_training = False
+  with tf.Graph().as_default():
+    with tf.device('/gpu:'+str(GPU_INDEX)):
+      pointclouds_pl, labels_pl = MODEL.placeholder_inputs(BATCH_SIZE, NUM_POINT)
+      is_training_pl = tf.placeholder(tf.bool, shape=())
 
-            pert=tf.get_variable(name='pert',shape=[BATCH_SIZE,NUM_ADD,3],initializer=tf.truncated_normal_initializer(stddev=0.01))
-            initial_point_pl=tf.placeholder(shape=[BATCH_SIZE,NUM_ADD,3],dtype=tf.float32)
-            point_added=initial_point_pl+pert
-            pointclouds_input=tf.concat([pointclouds_pl,point_added],axis=1)
-            
-            pred, end_points = MODEL.get_model(pointclouds_input, is_training_pl)
+      pert=tf.get_variable(name='pert',shape=[BATCH_SIZE,NUM_ADD,3],initializer=tf.truncated_normal_initializer(stddev=0.01))
+      initial_point_pl=tf.placeholder(shape=[BATCH_SIZE,NUM_ADD,3],dtype=tf.float32)
+      point_added=initial_point_pl+pert
+      pointclouds_input=tf.concat([pointclouds_pl,point_added],axis=1)
+          
+      pred, end_points = MODEL.get_model(pointclouds_input, is_training_pl)
 
-            vl=tf.global_variables()
-            vl=[x for x in vl if 'pert' not in x.name]
-            saver = tf.train.Saver(vl)
+      vl=tf.global_variables()
+      vl=[x for x in vl if 'pert' not in x.name]
+      saver = tf.train.Saver(vl)
 
-        # Create a session
-        config = tf.ConfigProto()
-        config.gpu_options.allow_growth = True
-        config.allow_soft_placement = True
-        #config.log_device_placement = True
-        sess = tf.Session(config=config)
-        sess.run(tf.global_variables_initializer())
+    # Create a session
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    config.allow_soft_placement = True
+    #config.log_device_placement = True
+    sess = tf.Session(config=config)
+    sess.run(tf.global_variables_initializer())
 
+    ops = {
+      'pointclouds_pl': pointclouds_pl,
+      'labels_pl': labels_pl,
+      'is_training_pl': is_training_pl,
+      'pointclouds_input':pointclouds_input,
+      'initial_point_pl':initial_point_pl,
+      'pert': pert,
+      'point_added':point_added,
+      'pre_max':end_points['pre_max'],
+      'post_max':end_points['post_max'],
+      'pred': pred,
+    }
 
-        ops = {'pointclouds_pl': pointclouds_pl,
-               'labels_pl': labels_pl,
-               'is_training_pl': is_training_pl,
-               'pointclouds_input':pointclouds_input,
-               'initial_point_pl':initial_point_pl,
-               'pert': pert,
-               'point_added':point_added,
-               'pre_max':end_points['pre_max'],
-               'post_max':end_points['post_max'],
-               'pred': pred,
-               }
+    saver.restore(sess,MODEL_PATH)
+    print('model restored!')
 
-        saver.restore(sess,MODEL_PATH)
-        print('model restored!')
-
-        dist_list=[]  
-        for victim in [5,35,33,22,37,2,4,0,30,8]:#the class index of selected 10 largest classes in ModelNet40 (although there are more classes with 100 samples)
-            if victim == TARGET:
-                continue
-            attacked_data=attacked_data_all[victim]#attacked_data shape:100*1024*3, but only the first 25 are used later on
-            for j in range(ATT_SIZE//BATCH_SIZE):
-                dist,img=attack_one_batch(sess,ops,attacked_data[j*BATCH_SIZE:(j+1)*BATCH_SIZE])
-                dist_list.append(dist)
-                np.save(os.path.join('.',DUMP_DIR,'{}_{}_{}_adv.npy' .format(victim,TARGET,j)),img)
-                #np.save(os.path.join('.',DUMP_DIR,'{}_{}_{}_orig.npy' .format(victim,TARGET,j)),attacked_data[j*BATCH_SIZE:(j+1)*BATCH_SIZE])#dump originial example for comparison
-        #joblib.dump(dist_list,os.path.join('.',DUMP_DIR,'dist_{}.z' .format(TARGET)))#log distance information for performation evaluation
-
+    for victim in [5,35,33,22,37,2,4,0,30,8]:#the class index of selected 10 largest classes in ModelNet40 (although there are more classes with 100 samples)
+      attacked_data=attacked_data_all[victim]#attacked_data shape:100*1024*3, but only the first 25 are used later on
+      for j in range(ATT_SIZE//BATCH_SIZE):
+        dist,img=attack_one_batch(sess,ops,attacked_data[j*BATCH_SIZE:(j+1)*BATCH_SIZE])
+        #np.save in DUMP_DIR orig.npy, adv.npy, return adv examples of batch
+                
 def attack_one_batch(sess, ops, attacked_data):
 
   is_training = False
 
-  # Critical points here:
+  # Critical points:
   init_points=MODEL.get_critical_points(sess,ops,attacked_data,BATCH_SIZE,NUM_ADD,NUM_POINT)
     
+  # Remove points from data:
   new_attacked_data = []
 
   for i in range(BATCH_SIZE):
@@ -126,8 +109,7 @@ def attack_one_batch(sess, ops, attacked_data):
   print(np.shape(attacked_data))
   print(np.shape(new_attacked_data))
 
-  
-
+  # Try to predict:
   feed_dict = {
     ops['pointclouds_pl']: attacked_data,
     ops['is_training_pl']: is_training,
