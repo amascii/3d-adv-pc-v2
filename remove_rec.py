@@ -156,12 +156,12 @@ def get_pred(new_attacked_data, init_points):
 if __name__=='__main__':
   # n = 1
   N = NUM_ADD
-  class_id = 1
+  class_id = 33
   data = attacked_data_all[class_id][:1] #1x1024x3
   for _ in range(NUM_ITER):
     # get n points
     crit_p = get_crit_p(np.array(data))
-    print(f'crit shape: {np.shape(crit_p)}, ', end='')
+    #print(f'crit shape: {np.shape(crit_p)}, ', end='')
     
     # remove n points
     ids = []
@@ -173,4 +173,4 @@ if __name__=='__main__':
 
     # check prediction
     pred = get_pred(data, crit_p)
-    print(f'pred: {pred[0]}, original: {class_id}')
+    print(f'pred|truth : {pred[0]}|{class_id}')
