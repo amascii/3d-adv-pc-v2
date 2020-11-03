@@ -174,7 +174,7 @@ def attack_one_batch(sess,ops,attacked_data):
          ops['initial_point_pl']:init_points}
 
     for out_step in range(BINARY_SEARCH_STEP):
-
+        print(f'step: {step}')
         feed_dict[ops['dist_weight']]=WEIGHT
 
         sess.run(tf.assign(ops['pert'],tf.truncated_normal([BATCH_SIZE,NUM_ADD,3], mean=0, stddev=0.0000001)))
@@ -195,9 +195,9 @@ def attack_one_batch(sess,ops,attacked_data):
             
             # Loss (?) here:
             loss=adv_loss_val+np.average(dist_val*WEIGHT)
-            if iteration % ((NUM_ITERATIONS // 10) or 1) == 0:
-              print(f'pred: {pred_val}')
-              print(f'Iteration {iteration} of {NUM_ITERATIONS}: loss={loss} adv_loss:{adv_loss_val} distance={np.mean(dist_val)}')
+            if iteration % ((NUM_ITERATIONS // 50) or 1) == 0:
+              print(f' pred: {pred_val}')
+              print(f' Iteration {iteration} of {NUM_ITERATIONS}: loss={loss} adv_loss:{adv_loss_val} distance={np.mean(dist_val)}')
 
 
             # check if we should abort search if we're getting nowhere.
@@ -233,7 +233,7 @@ def attack_one_batch(sess,ops,attacked_data):
                 WEIGHT[e] = (lower_bound[e] + upper_bound[e]) / 2
         #bestdist_prev=deepcopy(bestdist)
 
-    print(" Successfully generated adversarial exampleson {} of {} instances." .format(sum(lower_bound > 0), BATCH_SIZE))
+    print(f' Successfully generated adversarial examples on {sum(lower_bound > 0)} of {BATCH_SIZE} instances.'
     return o_bestdist,o_bestattack
 
 
