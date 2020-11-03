@@ -233,7 +233,7 @@ def attack_one_batch(sess,ops,attacked_data):
                 WEIGHT[e] = (lower_bound[e] + upper_bound[e]) / 2
         #bestdist_prev=deepcopy(bestdist)
 
-    print(f' Successfully generated adversarial examples on {sum(lower_bound > 0)} of {BATCH_SIZE} instances.'
+    print(f' Successfully generated adversarial examples on {sum(lower_bound > 0)} of {BATCH_SIZE} instances.')
     return o_bestdist,o_bestattack
 
 
