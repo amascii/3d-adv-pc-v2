@@ -162,7 +162,38 @@ def attack_one_batch(sess, ops, attacked_data):
   # Predictions here:
   pred_val = np.argmax(pred_val, 1)
   print(pred_val)
-  #input('press summin')
+
+  #idx = np.where(attacked_data[0] == init_points[0][0])
+
+  #print(np.shape(attacked_data[0]))
+  #new_pc = np.delete(attacked_data[0], idx[0][0], 0)
+  #print(np.shape(new_pc))
+
+  new_attacked_data = []
+
+  for i in range(BATCH_SIZE):
+    idx = np.where(attacked_data[i] == init_points[i][0])
+    pc = np.delete(attacked_data[i], idx[0][0], 0)
+    new_attacked_data.append(pc)
+
+  print(np.shape(attacked_data))
+  print(np.shape(new_attacked_data))
+
+
+  feed_dict = {
+    ops['pointclouds_pl']: new_attacked_data,
+    ops['is_training_pl']: is_training,
+    ops['initial_point_pl']: init_points
+  }
+ 
+  pred_val,input_val = sess.run(
+    [ops['pred'],
+    ops['pointclouds_input']],
+    feed_dict=feed_dict)
+
+  pred_val = np.argmax(pred_val, 1)
+  print(pred_val)
+  input('press summin')
     
 
 if __name__=='__main__':
