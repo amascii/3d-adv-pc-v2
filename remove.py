@@ -143,29 +143,27 @@ def attack():
 
 def attack_one_batch(sess, ops, attacked_data):
 
-    is_training = False
+  is_training = False
 
-    attacked_label=np.ones(shape=(len(attacked_data)),dtype=int) * TARGET #the target label for adv pcs
-    attacked_label=np.squeeze(attacked_label)
-
-    # Critical points here:
-    init_points=MODEL.get_critical_points(sess,ops,attacked_data,BATCH_SIZE,NUM_ADD,NUM_POINT)
+  # Critical points here:
+  init_points=MODEL.get_critical_points(sess,ops,attacked_data,BATCH_SIZE,NUM_ADD,NUM_POINT)
     
-    feed_dict = {
-      ops['pointclouds_pl']: attacked_data,
-      ops['is_training_pl']: is_training,
-      ops['initial_point_pl']: init_points
-    }
+  feed_dict = {
+    ops['pointclouds_pl']: attacked_data,
+    ops['is_training_pl']: is_training,
+    ops['initial_point_pl']: init_points
+  }
  
-    pred_val,input_val = sess.run(
-      [ops['pred'],
-      ops['pointclouds_input']],
-      feed_dict=feed_dict) 
+  pred_val,input_val = sess.run(
+    [ops['pred'],
+    ops['pointclouds_input']],
+    feed_dict=feed_dict)
             
-    # Predictions here:
-    pred_val = np.argmax(pred_val, 1)
-    print(pred_val)
-    q = input('input summin')
+  # Predictions here:
+  pred_val = np.argmax(pred_val, 1)
+  print(pred_val)
+  #input('press summin')
+    
 
 if __name__=='__main__':
-    attack()
+  attack()
