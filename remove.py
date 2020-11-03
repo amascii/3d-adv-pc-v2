@@ -33,6 +33,8 @@ parser.add_argument('--upper_bound_weight', type=float, default=40000, help='upp
 parser.add_argument('--step', type=int, default=10, help='binary search step')
 parser.add_argument('--num_iter', type=int, default=500, help='number of iterations for each binary search step')
 
+parser.add_argument('--att_size', type=int, default=25, help='Number of samples to attack (max: 100) [default: 25]')
+
 FLAGS = parser.parse_args()
 
 
@@ -44,6 +46,8 @@ MODEL = importlib.import_module(FLAGS.model) # import network module
 DUMP_DIR = FLAGS.dump_dir
 if not os.path.exists(DUMP_DIR): os.mkdir(DUMP_DIR)
 DATA_DIR = FLAGS.data_dir
+
+ATT_SIZE = FLAGS.att_size
 
 TARGET=FLAGS.target
 NUM_ADD=FLAGS.add_num
@@ -130,7 +134,7 @@ def attack():
             if victim == TARGET:
                 continue
             attacked_data=attacked_data_all[victim]#attacked_data shape:100*1024*3, but only the first 25 are used later on
-            for j in range(25//BATCH_SIZE):
+            for j in range(ATT_SIZE//BATCH_SIZE):
                 dist,img=attack_one_batch(sess,ops,attacked_data[j*BATCH_SIZE:(j+1)*BATCH_SIZE])
                 dist_list.append(dist)
                 np.save(os.path.join('.',DUMP_DIR,'{}_{}_{}_adv.npy' .format(victim,TARGET,j)),img)
@@ -160,6 +164,7 @@ def attack_one_batch(sess,ops,attacked_data):
     o_bestscore = [-1] * BATCH_SIZE
     o_bestattack = np.ones(shape=(BATCH_SIZE,NUM_ADD+NUM_POINT,3))
 
+    # Critical points here:
     init_points=MODEL.get_critical_points(sess,ops,attacked_data,BATCH_SIZE,NUM_ADD,NUM_POINT)
 
     feed_dict = {ops['pointclouds_pl']: attacked_data,
@@ -184,13 +189,15 @@ def attack_one_batch(sess,ops,attacked_data):
 
             adv_loss_val,dist_val,pred_val,input_val = sess.run([ops['adv_loss'],
                 ops['dists_forward'],ops['pred'],ops['pointclouds_input']], feed_dict=feed_dict)
+            
+            # Predictions here:
             pred_val = np.argmax(pred_val, 1)
+            
+            # Loss (?) here:
             loss=adv_loss_val+np.average(dist_val*WEIGHT)
             if iteration % ((NUM_ITERATIONS // 10) or 1) == 0:
-                print((" Iteration {} of {}: loss={} adv_loss:{} " +
-                               "distance={}")
-                              .format(iteration, NUM_ITERATIONS,
-                                loss, adv_loss_val,np.mean(dist_val)))
+              print(f'pred: {pred_val}')
+              print(f'Iteration {iteration} of {NUM_ITERATIONS}: loss={loss} adv_loss:{adv_loss_val} distance={np.mean(dist_val)}')
 
 
             # check if we should abort search if we're getting nowhere.
