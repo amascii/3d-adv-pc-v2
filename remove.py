@@ -41,7 +41,7 @@ NUM_ADD=FLAGS.add_num
 
 attacked_data_all=joblib.load(os.path.join(DATA_DIR,'attacked_data.z'))
 
-def get_crit_p():
+def get_crit_p(attacked_data):
   is_training = False
   with tf.Graph().as_default():
     with tf.device('/gpu:'+str(GPU_INDEX)):
@@ -84,7 +84,7 @@ def get_crit_p():
 
 
     # Critical points:
-    attacked_data = attacked_data_all[35][:1]
+    #attacked_data = attacked_data_all[35][:1]
     crit_p=MODEL.get_critical_points(sess, ops, attacked_data, BATCH_SIZE, NUM_ADD,NUM_POINT)
     return crit_p
 
@@ -156,27 +156,35 @@ def get_pred(new_attacked_data, init_points):
 
 
 if __name__=='__main__':
+
+  class_id = 1
+  data = attacked_data_all[class_id][0:1] #1x1024x3
+
   # get k points
-  crit_p = get_crit_p()
+  crit_p = get_crit_p(data)
 
   print(f'crit shape: {np.shape(crit_p)}')
 
-  for k in range(250):
+  # remove k points
+  ids = []
 
-    # remove k points
-    data = attacked_data_all[35][:1] #1x1024x3
-    ids = []
-    for i in range(k):
-      idx = np.where(data[0] == crit_p[0][i])
-      ids.append(idx[0][0])
-    new_data = np.delete(data[0], ids, 0) #1x(1024-k)x3
+  K = 512
 
-    print(f'ids shape: {np.shape(ids)} ids set: {len(set(ids))} new shape: {np.shape(new_data)}')
+  for i in range(K):
+    idx = np.where(data[0] == crit_p[0][i])
+    ids.append(idx[0][0])
+
+  ids = np.unique(ids)
+
+  print(f'ids shape: {np.shape(ids)}')
+
+  for i in range(len(ids)):
+    new_data = np.delete(data[0], ids[:i+1], 0) #1x(1024-k)x3
+    
+    print(f'new shape: {np.shape(new_data)}', end='')
 
     # check prediction
     pred = get_pred([new_data], crit_p)
 
-    if pred[0] == 35:
-      print(f' pred: {pred[0]} result: same old')
-    else:
-      print(f' pred: {pred[0]} result: adv example found!')
+    
+    print(f' pred: {pred[0]}, original: {class_id}')
